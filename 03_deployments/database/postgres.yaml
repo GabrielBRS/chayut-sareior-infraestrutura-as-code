@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-postgres  # O nome que o Java vai usar para conectar
+spec:
+  ports:
+  - port: 5432
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet # StatefulSet é melhor que Deployment para Bancos
+metadata:
+  name: postgres
+spec:
+  serviceName: "db-postgres"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15 # O Docker baixa essa imagem pronta
+        env:
+        - name: POSTGRES_PASSWORD
+          value: "minhasenha"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates: # Pede disco persistente ao Longhorn/StorageClass
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
