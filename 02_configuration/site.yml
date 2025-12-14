@@ -1,0 +1,59 @@
+---
+- name: Preparar Base (Common)
+  hosts: k8s_cluster
+  become: yes
+  tasks:
+    - name: Desativar Swap (Obrigatório pro K8s)
+      command: swapoff -a
+
+    - name: Instalar Dependências Docker/Containerd
+      apt:
+        name:
+          - containerd
+          - apt-transport-https
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Instalar Kubeadm, Kubelet, Kubectl
+      shell: |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        apt-get update
+        apt-get install -y kubelet kubeadm kubectl
+        apt-mark hold kubelet kubeadm kubectl
+
+- name: Inicializar Master
+  hosts: masters
+  become: yes
+  tasks:
+    - name: Inicializar Cluster Kubernetes
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      register: kubeadm_output
+      # Executa apenas se o arquivo admin.conf não existir (Idempotência)
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Gerar Token de Join para Workers
+      command: kubeadm token create --print-join-command
+      register: join_command_raw
+
+    - name: Configurar Kubeconfig para o usuário ubuntu
+      shell: |
+        mkdir -p /home/ubuntu/.kube
+        cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+        chown ubuntu:ubuntu /home/ubuntu/.kube/config
+
+    # Salva o comando de join numa variável dummy host para os workers lerem
+    - add_host:
+        name: "K8S_TOKEN_HOLDER"
+        token: "{{ join_command_raw.stdout }}"
+
+- name: Juntar Workers ao Cluster
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Join Cluster
+      command: "{{ hostvars['K8S_TOKEN_HOLDER']['token'] }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
