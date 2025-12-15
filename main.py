@@ -60,7 +60,7 @@ def run_step_3_config():
     inventory_script = os.path.join(ANSIBLE_DIR, "inventory_loader.py")
 
     try:
-        cmd = ["ansible-playbook", "-i", inventory_script, os.path.join(ANSIBLE_DIR, "site.yml")]
+        cmd = ["ansible-playbook", "-i", inventory_script, os.path.join(ANSIBLE_DIR, "setup_cluster.yml")]
         log("Ansible executado (Simulação).", "SUCCESS")
     except Exception as e:
         log(f"Erro no Ansible: {e}", "ERROR")
