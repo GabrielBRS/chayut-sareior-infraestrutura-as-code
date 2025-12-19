@@ -1,0 +1,7 @@
+# Sugestão para adicionar em 02_cluster_setup/roles/os_hardening/tasks/main.yml
+- name: Criar diretório para Modelos de IA
+  file:
+    path: /opt/ai-models
+    state: directory
+    mode: '0755'
+    owner: root # ou o usuário que você preferir

@@ -1,0 +1,5 @@
+- name: Deploy AI Engine (Triton)
+  k8s:
+    state: present
+    src: manifests/ai-engine/triton-deployment.yaml
+    namespace: default
