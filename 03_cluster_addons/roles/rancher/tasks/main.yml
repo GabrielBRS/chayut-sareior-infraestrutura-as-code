@@ -1,0 +1,33 @@
+---
+- name: Instalar Helm
+  shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Adicionar repositórios Helm (Jetstack e Rancher)
+  shell: |
+    helm repo add jetstack https://charts.jetstack.io
+    helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+    helm repo update
+
+- name: Instalar Cert-Manager (Pré-requisito Rancher)
+  shell: |
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+    sleep 30 # Espera CRDs subirem
+
+- name: Instalar NVIDIA Device Plugin (Para K8s ver a GPU)
+  shell: |
+    kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.0/nvidia-device-plugin.yml
+  ignore_errors: yes # Ignora se já existir
+
+- name: Criar Namespace Cattle-System
+  shell: kubectl create namespace cattle-system
+  ignore_errors: yes
+
+- name: Instalar Rancher
+  shell: |
+    helm install rancher rancher-latest/rancher \
+      --namespace cattle-system \
+      --set hostname=rancher.localhost \
+      --set bootstrapPassword=admin
+  ignore_errors: yes # Ignora se já estiver instalado

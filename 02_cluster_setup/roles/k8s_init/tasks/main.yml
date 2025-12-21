@@ -1,0 +1,39 @@
+---
+- name: Instalar K3s (Modo Script)
+  shell: curl -sfL https://get.k3s.io | sh -
+  args:
+    creates: /usr/local/bin/k3s
+
+- name: Garantir diretório de configuração do Containerd no K3s
+  file:
+    path: /var/lib/rancher/k3s/agent/etc/containerd/
+    state: directory
+    mode: '0755'
+
+- name: Detectar caminho do nvidia-container-runtime
+  command: which nvidia-container-runtime
+  register: nvidia_binary
+
+- name: Criar Template do Containerd para GPU (A Correção Crítica)
+  copy:
+    dest: /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+    content: |
+      [plugins.cri.containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+
+      [plugins.cri.containerd.runtimes.runc.options]
+        BinaryName = "/usr/bin/runc"
+
+      [plugins.cri.containerd.runtimes.nvidia]
+        runtime_type = "io.containerd.runc.v2"
+
+      [plugins.cri.containerd.runtimes.nvidia.options]
+        BinaryName = "{{ nvidia_binary.stdout }}"
+        SystemdCgroup = true
+  notify: Reiniciar K3s
+
+- name: Configurar KUBECONFIG no .bashrc
+  lineinfile:
+    path: /home/{{ ansible_user }}/.bashrc
+    line: 'export KUBECONFIG=~/.kube/config'
+    create: yes
